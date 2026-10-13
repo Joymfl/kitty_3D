@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     env,
     error::Error,
-    io::{self, ErrorKind, Stderr},
+    io::{self, Stderr},
 };
 
 use ratatui::{
@@ -70,7 +70,7 @@ where
 {
     let mut current_dir = env::current_dir().unwrap();
     current_dir.push("models");
-    let mut dirs: Vec<DirEntry> = WalkDir::new(current_dir)
+    let dirs: Vec<DirEntry> = WalkDir::new(current_dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|f| f.file_type().is_file())

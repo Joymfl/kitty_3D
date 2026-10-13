@@ -1,22 +1,16 @@
-use std::{
-    env,
-    fs::{self},
-    path::Path,
-};
+use std::path::Path;
 
-// use color_eyre::eyre::Ok;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
-    style::{Color, Style, Stylize},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    style::{Color, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem},
 };
 use russimp_ng::{
     RussimpError,
     scene::{PostProcess, Scene},
 };
-use walkdir::{DirEntry, WalkDir};
 
 use crate::App;
 
