@@ -1,6 +1,7 @@
 extern crate glfw;
 use std::{ffi::CString, mem, os::raw::c_void, ptr};
 
+use freetype::ffi::FT_LOAD_RENDER;
 use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr};
 use glfw::{Action, Context, GlfwReceiver, Key};
 
@@ -8,6 +9,8 @@ extern crate gl;
 
 const SCR_WIDTH: u32 = 800;
 const SCR_HEIGHT: u32 = 600;
+
+mod shader_management;
 
 const vertexShaderSource: &str = r#"
     #version 330 core
@@ -41,7 +44,7 @@ fn main() {
 
     gl::load_with(|symbol| window.get_proc_address(symbol).unwrap() as *const _);
 
-    let (shaderProgram, VAO) = unsafe {
+    let (shaderProgram, VAO, EBO) = unsafe {
         let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
         let c_str_vert = CString::new(vertexShaderSource.as_bytes()).unwrap();
         gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
@@ -100,10 +103,15 @@ fn main() {
         gl::DeleteShader(vertex_shader);
         gl::DeleteShader(fragment_shader);
 
-        let vertices: [f32; 9] = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0];
-        let (mut VBO, mut VAO) = (0, 0);
+        let vertices: [f32; 12] = [
+            0.5, 0.5, 0.0, 0.5, -0.5, 0.0, -0.5, -0.5, 0.0, -0.5, 0.5, 0.0,
+        ];
+
+        let indices = [0, 1, 3, 1, 2, 3];
+        let (mut VBO, mut VAO, mut EBO) = (0, 0, 0);
         gl::GenVertexArrays(1, &mut VAO);
         gl::GenBuffers(1, &mut VBO);
+        gl::GenBuffers(1, &mut EBO);
 
         gl::BindVertexArray(VAO);
 
@@ -112,6 +120,13 @@ fn main() {
             gl::ARRAY_BUFFER,
             (vertices.len() * mem::size_of::<GLfloat>()) as GLsizeiptr,
             &vertices[0] as *const f32 as *const c_void,
+            gl::STATIC_DRAW,
+        );
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, EBO);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            (indices.len() * mem::size_of::<GLint>()) as GLsizeiptr,
+            &indices[0] as *const i32 as *const c_void,
             gl::STATIC_DRAW,
         );
 
@@ -125,12 +140,21 @@ fn main() {
         );
         gl::EnableVertexAttribArray(0);
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-
         gl::BindVertexArray(0);
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
 
-        (shader_program, VAO)
+        (shader_program, VAO, EBO)
     };
+
+    let library = freetype::Library::init().unwrap();
+    let face = library
+        .new_face("$HOME/.local/share/fonts/NFM.ttf", 0)
+        .unwrap();
+    face.set_pixel_sizes(0, 48).unwrap();
+
+    face.load_char('X' as u32 as usize, freetype::face::LoadFlag::RENDER)
+        .unwrap();
 
     // render
     while !window.should_close() {
@@ -142,7 +166,7 @@ fn main() {
 
             gl::UseProgram(shaderProgram);
             gl::BindVertexArray(VAO);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, ptr::null());
         }
         window.swap_buffers();
         glfw.poll_events();

@@ -1,9 +1,16 @@
-[package]
-name = "subcell"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = ["subcell", "kp_test"]
+resolver = "2"
 
-[dependencies]
-freetype-rs = "0.38.0"
+[workspace.dependencies]
+bytemuck = "1.25.2"
 gl = "0.14.0"
 glfw = "0.63.0"
+russimp-ng = { version = "3.2.1" }
+color-eyre = "0.6.5"
+crossterm = "0.29.0"
+ratatui = "0.30.2"
+
+[workspace.dependencies.freetype-rs]
+version = "0.38.0"
+features = ["bundled"]
