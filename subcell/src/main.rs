@@ -147,14 +147,14 @@ fn main() {
         (shader_program, VAO, EBO)
     };
 
-    let library = freetype::Library::init().unwrap();
-    let face = library
-        .new_face("$HOME/.local/share/fonts/NFM.ttf", 0)
-        .unwrap();
-    face.set_pixel_sizes(0, 48).unwrap();
-
-    face.load_char('X' as u32 as usize, freetype::face::LoadFlag::RENDER)
-        .unwrap();
+    // let library = freetype::Library::init().unwrap();
+    // let face = library
+    //     .new_face("$HOME/.local/share/fonts/NFM.ttf", 0)
+    //     .unwrap();
+    // face.set_pixel_sizes(0, 48).unwrap();
+    //
+    // face.load_char('X' as u32 as usize, freetype::face::LoadFlag::RENDER)
+    //     .unwrap();
 
     // render
     while !window.should_close() {

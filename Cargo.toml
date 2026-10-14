@@ -10,6 +10,8 @@ russimp-ng = { version = "3.2.1" }
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
 ratatui = "0.30.2"
+kittage = "0.4.0"
+khronos-egl = "6.0.0"
 
 [workspace.dependencies.freetype-rs]
 version = "0.38.0"

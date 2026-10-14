@@ -7,27 +7,24 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem},
 };
-use russimp_ng::{
-    RussimpError,
-    scene::{PostProcess, Scene},
-};
 
 use crate::App;
 
-fn load_model_info(file_path: &str) -> Result<(), RussimpError> {
-    let post_process_flags = vec![
-        PostProcess::CalculateTangentSpace,
-        PostProcess::Triangulate,
-        PostProcess::JoinIdenticalVertices,
-        PostProcess::SortByPrimitiveType,
-        PostProcess::GenerateNormals,
-        PostProcess::GenerateUVCoords,
-    ];
-    let scene: Scene = Scene::from_file(file_path, post_process_flags)?;
-    println!("scnee loaded succesfully, from: {}", file_path);
-    println!("Meshes: {}", scene.meshes.len());
-    Ok(())
-}
+// fn load_model_info(file_path: &str) -> Result<(), RussimpError> {
+//     let post_process_flags = vec![
+//         PostProcess::CalculateTangentSpace,
+//         PostProcess::Triangulate,
+//         PostProcess::JoinIdenticalVertices,
+//         PostProcess::SortByPrimitiveType,
+//         PostProcess::GenerateNormals,
+//         PostProcess::GenerateUVCoords,
+//     ];
+//     // TODO: Extract mesh ddata and pass to egl
+//     // let scene: Scene = Scene::from_file(file_path, post_process_flags)?;
+//     // println!("scnee loaded succesfully, from: {}", file_path);
+//     // println!("Meshes: {}", scene.meshes.len());
+//     Ok(())
+// }
 pub fn ui(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -60,7 +57,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     let list = List::new(list_items).block(list_block);
     frame.render_widget(list, chunks[0]);
 
-    if let Some(path) = model_path.take() {
-        load_model_info(path.to_str().unwrap()).unwrap();
-    }
+    // if let Some(path) = model_path.take() {
+    //     load_model_info(path.to_str().unwrap()).unwrap();
+    // }
 }

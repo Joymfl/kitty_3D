@@ -12,6 +12,10 @@ crossterm = { workspace = true }
 ratatui = { workspace = true }
 russimp-ng = { workspace = true }
 walkdir = "2"
+kittage = { workspace = true }
+khronos-egl = { workspace = true, features = ["static"] }
+wayland-client = "0.31.15"
+gl = { workspace = true }
 
 
 # Read the optimization guideline for more details: https://ratatui.rs/recipes/apps/release-your-app/#optimizations

@@ -5,6 +5,8 @@ use std::{
     io::{self, Stderr},
 };
 
+extern crate khronos_egl as egl;
+
 use ratatui::{
     Terminal,
     backend::{Backend, CrosstermBackend},
@@ -64,6 +66,63 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn init_offscreen_buffer() -> Result<(), egl::Error> {
+    let egl = egl::Instance::new(egl::Static);
+    let display = unsafe { egl.get_display(egl::DEFAULT_DISPLAY) }.unwrap();
+    let _ = egl.initialize(display).is_ok();
+
+    let attributes = [
+        egl::RED_SIZE,
+        8,
+        egl::GREEN_SIZE,
+        8,
+        egl::BLUE_SIZE,
+        8,
+        egl::NONE,
+    ];
+    egl.bind_api(egl::OPENGL_API)?;
+    let config = egl
+        .choose_first_config(display, &attributes)?
+        .expect("Unable to find appropriate attrs");
+
+    let context_attributes = [
+        egl::CONTEXT_MAJOR_VERSION,
+        4,
+        egl::CONTEXT_MINOR_VERSION,
+        0,
+        egl::CONTEXT_OPENGL_PROFILE_MASK,
+        egl::CONTEXT_OPENGL_CORE_PROFILE_BIT,
+        egl::NONE,
+    ];
+    let context = egl.create_context(display, config, None, &context_attributes)?;
+    let surface = unsafe { egl::Surface::from_ptr(egl::NO_SURFACE) };
+    egl.make_current(display, Some(surface), Some(surface), Some(context))?;
+
+    gl::load_with(|symbol| egl.get_proc_address(symbol).unwrap() as *mut std::ffi::c_void);
+
+    unsafe {
+        gl::ClearColor(1.0, 1.0, 0.0, 1.0);
+        gl::Clear(gl::COLOR_BUFFER_BIT);
+        gl::Flush();
+        gl::ReadBuffer(gl::BACK);
+        let pixels: [u8; 1024] = std::array::from_fn(|i| 0);
+        gl::ReadPixels(
+            0,
+            0,
+            100,
+            200,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            &pixels as *const u8 as *mut std::ffi::c_void,
+        );
+        for p in pixels.iter().enumerate() {
+            println!("data {}: {}", p.0, p.1);
+        }
+    }
+
+    Ok(())
+}
+
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool>
 where
     io::Error: From<B::Error>,
@@ -79,6 +138,11 @@ where
     for dir in dirs {
         app.model_list
             .insert(dir.file_name().to_str().unwrap().to_string(), dir);
+    }
+
+    match init_offscreen_buffer() {
+        Ok(()) => {}
+        Err(e) => println!("failed: {}", e),
     }
 
     // render loop
