@@ -3,10 +3,12 @@ use std::{
     env,
     error::Error,
     io::{self, Stderr},
+    ptr::null,
 };
 
 extern crate khronos_egl as egl;
 
+use gl::BindFramebuffer;
 use ratatui::{
     Terminal,
     backend::{Backend, CrosstermBackend},
@@ -100,12 +102,44 @@ fn init_offscreen_buffer() -> Result<(), egl::Error> {
 
     gl::load_with(|symbol| egl.get_proc_address(symbol).unwrap() as *mut std::ffi::c_void);
 
+    let (mut fbo, mut tex) = (0, 0);
     unsafe {
+        gl::GenFramebuffers(1, &mut fbo);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+
+        gl::GenTextures(1, &mut tex);
+        gl::BindTexture(gl::TEXTURE_2D, tex);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as i32,
+            100,
+            200,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            null(),
+        );
+
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            tex,
+            0,
+        );
+    }
+
+    unsafe {
+        gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
         gl::ClearColor(1.0, 1.0, 0.0, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
         gl::Flush();
-        gl::ReadBuffer(gl::BACK);
-        let pixels: [u8; 1024] = std::array::from_fn(|i| 0);
+        gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
+        // width * height * bytes required for color format
+        let pixels: [u8; 80_000] = std::array::from_fn(|_| 0);
         gl::ReadPixels(
             0,
             0,
@@ -116,6 +150,9 @@ fn init_offscreen_buffer() -> Result<(), egl::Error> {
             &pixels as *const u8 as *mut std::ffi::c_void,
         );
         for p in pixels.iter().enumerate() {
+            if p.0 > 10_000 {
+                break;
+            }
             println!("data {}: {}", p.0, p.1);
         }
     }

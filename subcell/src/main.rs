@@ -1,7 +1,6 @@
 extern crate glfw;
 use std::{ffi::CString, mem, os::raw::c_void, ptr};
 
-use freetype::ffi::FT_LOAD_RENDER;
 use gl::types::{GLchar, GLfloat, GLint, GLsizei, GLsizeiptr};
 use glfw::{Action, Context, GlfwReceiver, Key};
 
@@ -12,7 +11,7 @@ const SCR_HEIGHT: u32 = 600;
 
 mod shader_management;
 
-const vertexShaderSource: &str = r#"
+const VertexShaderSource: &str = r#"
     #version 330 core
     layout (location = 0) in vec3 aPos;
     void main() {
@@ -20,7 +19,7 @@ const vertexShaderSource: &str = r#"
     }
 "#;
 
-const fragmentShaderSource: &str = r#"
+const FragmentShaderSource: &str = r#"
     #version 330 core
     out vec4 FragColor;
     void main() {
@@ -46,7 +45,7 @@ fn main() {
 
     let (shaderProgram, VAO, EBO) = unsafe {
         let vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
-        let c_str_vert = CString::new(vertexShaderSource.as_bytes()).unwrap();
+        let c_str_vert = CString::new(VertexShaderSource.as_bytes()).unwrap();
         gl::ShaderSource(vertex_shader, 1, &c_str_vert.as_ptr(), ptr::null());
         gl::CompileShader(vertex_shader);
 
@@ -68,7 +67,7 @@ fn main() {
         }
 
         let fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
-        let c_str_frag = CString::new(fragmentShaderSource.as_bytes()).unwrap();
+        let c_str_frag = CString::new(FragmentShaderSource.as_bytes()).unwrap();
         gl::ShaderSource(fragment_shader, 1, &c_str_frag.as_ptr(), ptr::null());
         gl::CompileShader(fragment_shader);
 
