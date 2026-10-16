@@ -8,7 +8,7 @@ use std::{
 
 extern crate khronos_egl as egl;
 
-use gl::BindFramebuffer;
+use libloading::Library;
 use ratatui::{
     Terminal,
     backend::{Backend, CrosstermBackend},
@@ -20,7 +20,10 @@ use ratatui::{
 };
 use walkdir::{DirEntry, WalkDir};
 
-pub mod ui;
+use crate::device_test::test_device;
+
+pub(crate) mod device_test;
+pub(crate) mod ui;
 
 // TODO: make it more generic, this constrains it to crossterm backend and stderr writer
 fn setup() -> Result<Terminal<CrosstermBackend<Stderr>>, Box<dyn Error>> {
@@ -51,26 +54,32 @@ impl App {
     }
 }
 fn main() -> Result<(), Box<dyn Error>> {
-    let mut terminal = setup()?;
+    // let mut terminal = setup()?;
 
-    let mut app = App::new();
+    // let mut app = App::new();
+    test_device();
 
-    run_app(&mut terminal, &mut app)?;
-
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+    // run_app(&mut terminal, &mut app)?;
+    //
+    // disable_raw_mode()?;
+    // execute!(
+    //     terminal.backend_mut(),
+    //     LeaveAlternateScreen,
+    //     DisableMouseCapture
+    // )?;
+    // terminal.show_cursor()?;
 
     Ok(())
 }
 
 fn init_offscreen_buffer() -> Result<(), egl::Error> {
-    let egl = egl::Instance::new(egl::Static);
-    let display = unsafe { egl.get_display(egl::DEFAULT_DISPLAY) }.unwrap();
+    let lib = unsafe { Library::new("libEGL.so") }.map_err(|_| egl::Error::NotInitialized)?;
+    // handle nvidia registration via glvnd
+    // TODO: Add support for other backends, or move to egl-wayland
+    let egl = unsafe {
+        egl::DynamicInstance::<egl::EGL1_5>::load_required_from(lib).expect("unable to load lib")
+    };
+    let display = unsafe { egl.get_display(egl::DEFAULT_DISPLAY) }.ok_or(egl::Error::BadDisplay)?;
     let _ = egl.initialize(display).is_ok();
 
     let attributes = [
@@ -97,8 +106,10 @@ fn init_offscreen_buffer() -> Result<(), egl::Error> {
         egl::NONE,
     ];
     let context = egl.create_context(display, config, None, &context_attributes)?;
-    let surface = unsafe { egl::Surface::from_ptr(egl::NO_SURFACE) };
-    egl.make_current(display, Some(surface), Some(surface), Some(context))?;
+    // let surface = unsafe { egl::Surface::from_ptr(egl::NO_SURFACE) };
+    let pbuffer_attrib_list = [egl::WIDTH, 512, egl::HEIGHT, 512, egl::NONE];
+    let pbuffer = egl.create_pbuffer_surface(display, config, &pbuffer_attrib_list)?;
+    egl.make_current(display, Some(pbuffer), Some(pbuffer), Some(context))?;
 
     gl::load_with(|symbol| egl.get_proc_address(symbol).unwrap() as *mut std::ffi::c_void);
 
@@ -153,7 +164,7 @@ fn init_offscreen_buffer() -> Result<(), egl::Error> {
             if p.0 > 10_000 {
                 break;
             }
-            println!("data {}: {}", p.0, p.1);
+            // println!("data {}: {}", p.0, p.1);
         }
     }
 
