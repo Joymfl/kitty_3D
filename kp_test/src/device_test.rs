@@ -16,7 +16,8 @@ type EglQueryDevicesEXT = unsafe extern "C" fn(
     num_devices: *mut EGLint,
 ) -> EGLBoolean;
 
-pub fn test_device() -> Result<(), Box<dyn std::error::Error>> {
+pub const EGL_PLATFORM_WAYLAND_KHR: egl::Enum = 0x31D8;
+pub fn test_device() -> Result<usize, Box<dyn std::error::Error>> {
     let lib = unsafe { Library::new("libEGL.so") }.map_err(|_| egl::Error::NotInitialized)?;
     // handle nvidia registration via glvnd
     // TODO: Add support for other backends, or move to egl-wayland
@@ -55,5 +56,5 @@ pub fn test_device() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    Ok(())
+    Ok(*devices.first().unwrap() as usize)
 }

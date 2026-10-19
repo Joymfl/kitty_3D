@@ -1,7 +1,9 @@
+use core::ffi;
 use std::{
     collections::HashMap,
     env,
     error::Error,
+    ffi::c_void,
     io::{self, Stderr},
     ptr::null,
 };
@@ -20,7 +22,7 @@ use ratatui::{
 };
 use walkdir::{DirEntry, WalkDir};
 
-use crate::device_test::test_device;
+use crate::device_test::{EGL_PLATFORM_WAYLAND_KHR, test_device};
 
 pub(crate) mod device_test;
 pub(crate) mod ui;
@@ -54,32 +56,38 @@ impl App {
     }
 }
 fn main() -> Result<(), Box<dyn Error>> {
-    // let mut terminal = setup()?;
+    let mut terminal = setup()?;
 
-    // let mut app = App::new();
-    test_device();
+    let mut app = App::new();
+    let first_device = test_device().unwrap();
 
-    // run_app(&mut terminal, &mut app)?;
-    //
-    // disable_raw_mode()?;
-    // execute!(
-    //     terminal.backend_mut(),
-    //     LeaveAlternateScreen,
-    //     DisableMouseCapture
-    // )?;
-    // terminal.show_cursor()?;
+    run_app(&mut terminal, &mut app, first_device)?;
+
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
 
     Ok(())
 }
 
-fn init_offscreen_buffer() -> Result<(), egl::Error> {
+fn init_offscreen_buffer(first_device: usize) -> Result<(), egl::Error> {
     let lib = unsafe { Library::new("libEGL.so") }.map_err(|_| egl::Error::NotInitialized)?;
     // handle nvidia registration via glvnd
     // TODO: Add support for other backends, or move to egl-wayland
     let egl = unsafe {
         egl::DynamicInstance::<egl::EGL1_5>::load_required_from(lib).expect("unable to load lib")
     };
-    let display = unsafe { egl.get_display(egl::DEFAULT_DISPLAY) }.ok_or(egl::Error::BadDisplay)?;
+    let display = unsafe {
+        egl.get_platform_display(
+            EGL_PLATFORM_WAYLAND_KHR,
+            egl::DEFAULT_DISPLAY,
+            &[egl::ATTRIB_NONE],
+        )
+    }?;
     let _ = egl.initialize(display).is_ok();
 
     let attributes = [
@@ -171,7 +179,11 @@ fn init_offscreen_buffer() -> Result<(), egl::Error> {
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool>
+fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    first_device: usize,
+) -> io::Result<bool>
 where
     io::Error: From<B::Error>,
 {
@@ -188,7 +200,7 @@ where
             .insert(dir.file_name().to_str().unwrap().to_string(), dir);
     }
 
-    match init_offscreen_buffer() {
+    match init_offscreen_buffer(first_device) {
         Ok(()) => {}
         Err(e) => println!("failed: {}", e),
     }
