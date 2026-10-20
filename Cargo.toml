@@ -1,19 +1,27 @@
-[workspace]
-members = ["subcell", "kp_test"]
-resolver = "2"
+[package]
+name = "kp_test"
+version = "0.1.0"
+description = "An example generated using the hello-world template"
+authors = ["ddwr <jmjoymallik@gmail.com>"]
+license = "MIT"
+edition = "2024"
 
-[workspace.dependencies]
-bytemuck = "1.25.2"
-gl = "0.14.0"
-glfw = "0.63.0"
-russimp-ng = { version = "3.2.1" }
+[dependencies]
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
 ratatui = "0.30.2"
+russimp-ng = { version = "3.2.1" }
+walkdir = "2"
 kittage = "0.4.0"
-khronos-egl = "6.0.0"
+khronos-egl = { version = "6.0.0", features = ["dynamic"] }
+wayland-client = "0.31.15"
+gl = "0.14.0"
 libloading = "0.8.0"
 
-[workspace.dependencies.freetype-rs]
-version = "0.38.0"
-features = ["bundled"]
+
+# Read the optimization guideline for more details: https://ratatui.rs/recipes/apps/release-your-app/#optimizations
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
