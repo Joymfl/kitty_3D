@@ -43,18 +43,16 @@ pub fn test_device() -> Result<usize, Box<dyn std::error::Error>> {
         return Err("Failed to query or found 0 EGL devices.".into());
     }
 
-    println!("Found {} EGL device(s).", num_devices);
-
     // 5. Retrieve the device handles
     let mut devices: Vec<EGLDeviceEXT> = vec![ptr::null_mut(); num_devices as usize];
     let success =
         unsafe { egl_query_devices_ext(num_devices, devices.as_mut_ptr(), &mut num_devices) };
 
-    if success == egl::TRUE {
-        for (i, device) in devices.iter().enumerate() {
-            println!("Device [{}]: Pointer {:?}", i, device);
-        }
-    }
+    // if success == egl::TRUE {
+    //     for (i, device) in devices.iter().enumerate() {
+    //         println!("Device [{}]: Pointer {:?}", i, device);
+    //     }
+    // }
 
     Ok(*devices.first().unwrap() as usize)
 }
