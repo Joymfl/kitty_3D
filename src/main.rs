@@ -22,7 +22,10 @@ use ratatui::{
 };
 use walkdir::{DirEntry, WalkDir};
 
-use crate::device_test::{EGL_PLATFORM_WAYLAND_KHR, test_device};
+use crate::{
+    device_test::{EGL_PLATFORM_WAYLAND_KHR, test_device},
+    ui::DrawContext,
+};
 
 pub(crate) mod device_test;
 pub(crate) mod ui;
@@ -271,6 +274,9 @@ where
     let win_size = ui::get_terminal_in_cells()?;
     let mut vp_px = ui::region_in_px(&win_size, chunks[1]);
     resize_fbo_texture(tex, vp_px);
+    let mut offset_x = chunks[0].width;
+
+    let draw_context = &mut DrawContext::new(fbo, vp_px.0, vp_px.1, app.frame, offset_x);
 
     loop {
         // size flows down from the terminal: window -> layout -> viewport px -> texture
@@ -280,10 +286,11 @@ where
         if new_vp_px != vp_px {
             vp_px = new_vp_px;
             resize_fbo_texture(tex, vp_px);
+            offset_x = chunks[0].width;
+            draw_context.handle_resize(vp_px.0, vp_px.1, offset_x);
         }
-        let offset_x = ui::calc_offset_x(&win_size, chunks[0]);
 
-        terminal.draw(|f| ui::ui(f, app, fbo, tex, vp_px, offset_x))?;
+        terminal.draw(|f| ui::ui(f, app, draw_context))?;
         handle_event(app).map_err(|err| io::Error::other(err.to_string()))?;
         if !app.run {
             return Ok(true);

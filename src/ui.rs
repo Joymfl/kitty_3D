@@ -30,6 +30,7 @@ use ratatui::{
 };
 use russimp_ng::{
     RussimpError,
+    mesh::Mesh,
     scene::{PostProcess, Scene},
 };
 
@@ -73,29 +74,44 @@ pub fn region_in_px(win_size: &WindowSize, region: Rect) -> (u32, u32) {
     )
 }
 
-pub fn calc_offset_x(win_size: &WindowSize, sidebar_area: Rect) -> u32 {
-    let cell_x = win_size.width / win_size.columns;
-    (cell_x * sidebar_area.width) as u32
+// Should be 1 instance for the whole app currently
+pub struct DrawContext {
+    fbo: GLuint,
+    width: u32,  // px
+    height: u32, // px
+    frame: u64,
+    offset_x: u16, // in cells
+}
+
+impl DrawContext {
+    pub fn new(fbo: GLuint, width: u32, height: u32, frame: u64, offset_x: u16) -> Self {
+        Self {
+            fbo,
+            width,
+            height,
+            frame,
+            offset_x,
+        }
+    }
+    pub fn handle_resize(&mut self, width: u32, height: u32, offset_x: u16) {
+        self.width = width;
+        self.height = height;
+        self.offset_x = offset_x;
+    }
 }
 
 // NOTE: should always be the last call in the overall render loop
 // width, height = in px, must match the fbo texture allocation
-fn gl_draw_loop(
-    fbo: GLuint,
-    (width, height): (u32, u32),
-    frame: u64,
-    offset_x: u16, /* In cells */
-    model_path: Option<&Path>,
-) {
-    execute!(io::stdout(), MoveTo(offset_x, 0)).unwrap();
+fn gl_draw_loop(draw_context: &DrawContext, mesh: Mesh) {
+    execute!(io::stdout(), MoveTo(draw_context.offset_x, 0)).unwrap();
 
     // width * height * bytes required for color format
-    let area = (width) as usize * (height) as usize;
+    let area = (draw_context.width) as usize * (draw_context.height) as usize;
     let mut pixels = vec![0u8; area * 4];
-    let name = format!("kp_test-{frame}");
+    let name = format!("kp_test-{}", draw_context.frame);
     let mut shm = SharedMemObject::create_new(&name, area * 4).unwrap();
     unsafe {
-        gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+        gl::BindFramebuffer(gl::FRAMEBUFFER, draw_context.fbo);
         gl::ClearColor(1.0, 0.0, 0.0, 1.0);
         gl::Clear(gl::COLOR_BUFFER_BIT);
         gl::Flush();
@@ -103,8 +119,8 @@ fn gl_draw_loop(
         gl::ReadPixels(
             0,
             0,
-            width as i32,
-            height as i32,
+            draw_context.width as i32,
+            draw_context.height as i32,
             gl::RGBA,
             gl::UNSIGNED_BYTE,
             pixels.as_mut_ptr().cast(),
@@ -115,8 +131,8 @@ fn gl_draw_loop(
         num_or_id: kittage::NumberOrId::Number(NonZero::new(1).unwrap()),
         format: kittage::PixelFormat::Rgba32(
             ImageDimensions {
-                width: width as u32,
-                height: height as u32,
+                width: draw_context.width,
+                height: draw_context.height,
             },
             None,
         ),
@@ -126,8 +142,8 @@ fn gl_draw_loop(
         location: DisplayLocation {
             x: 0,
             y: 0,
-            width: width as u32,
-            height: height as u32,
+            width: draw_context.width,
+            height: draw_context.height,
             x_offset: 0,
             y_offset: 0,
             columns: 0,
@@ -151,7 +167,9 @@ fn gl_draw_loop(
     std::mem::forget(action)
     // action.execute(out, KpErr("".to_string()));
 }
-fn load_model_info(file_path: &str) -> Result<(), RussimpError> {
+
+//TODO: make async, this is blocking the render
+fn load_model_info(file_path: Option<&Path>) -> Result<Vec<Mesh>, RussimpError> {
     let post_process_flags = vec![
         PostProcess::CalculateTangentSpace,
         PostProcess::Triangulate,
@@ -160,22 +178,17 @@ fn load_model_info(file_path: &str) -> Result<(), RussimpError> {
         PostProcess::GenerateNormals,
         PostProcess::GenerateUVCoords,
     ];
-    // TODO: Extract mesh ddata and pass to egl
-    let scene: Scene = Scene::from_file(file_path, post_process_flags)?;
-    // println!("scnee loaded succesfully, from: {}", file_path);
-    // println!("Meshes: {}", scene.meshes.len());
-    Ok(())
+    if let Some(path) = file_path {
+        // TODO: Extract mesh ddata and pass to egl
+        let scene: Scene = Scene::from_file(path.to_str().unwrap(), post_process_flags)?;
+        Ok(scene.meshes)
+    } else {
+        Err(RussimpError::Import("File not found".to_string()))
+    }
 }
-//
+
 // For testing purposes, only 1 context during runtime.
-pub fn ui(
-    frame: &mut Frame,
-    app: &mut App,
-    framebuffer_id: GLuint,
-    texture_id: GLuint,
-    vp_px: (u32, u32),
-    offset_x: u32,
-) {
+pub fn ui(frame: &mut Frame, app: &mut App, draw_context: &mut DrawContext) {
     let chunks = layout(frame.area());
 
     let list_block = Block::default()
@@ -204,12 +217,7 @@ pub fn ui(
     let list = List::new(list_items).block(list_block);
     frame.render_widget(list, chunks[0]);
 
-    gl_draw_loop(
-        framebuffer_id,
-        vp_px,
-        app.frame,
-        chunks[0].width,
-        model_path,
-    );
+    let mut meshes = load_model_info(model_path).unwrap();
+    gl_draw_loop(draw_context, std::mem::take(meshes.first_mut().unwrap()));
     app.frame += 1;
 }
