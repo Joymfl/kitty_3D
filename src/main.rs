@@ -9,6 +9,7 @@ use std::{
 extern crate khronos_egl as egl;
 
 use gl::types::{GLint, GLuint};
+use kittage::medium::SharedMemObject;
 use libloading::Library;
 use ratatui::{
     Terminal,
@@ -43,6 +44,7 @@ pub struct App {
     pub model_list: HashMap<String, DirEntry>, //filepaths
     pub current_row: usize,
     pub run: bool,
+    pub frame: u64,
 }
 
 impl App {
@@ -51,6 +53,7 @@ impl App {
             model_list: HashMap::new(),
             current_row: 0,
             run: true,
+            frame: 0,
         }
     }
 }
@@ -252,17 +255,6 @@ where
 
         gl::GenTextures(1, &mut tex);
         gl::BindTexture(gl::TEXTURE_2D, tex);
-        gl::TexImage2D(
-            gl::TEXTURE_2D,
-            0,
-            gl::RGBA as i32,
-            100,
-            200,
-            0,
-            gl::RGBA,
-            gl::UNSIGNED_BYTE,
-            null(),
-        );
 
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
@@ -275,36 +267,46 @@ where
         );
     }
 
-    // unsafe {
-    //     gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
-    //     gl::ClearColor(1.0, 1.0, 0.0, 1.0);
-    //     gl::Clear(gl::COLOR_BUFFER_BIT);
-    //     gl::Flush();
-    //     gl::ReadBuffer(gl::COLOR_ATTACHMENT0);
-    //     // width * height * bytes required for color format
-    //     let pixels: [u8; 80_000] = std::array::from_fn(|_| 0);
-    //     gl::ReadPixels(
-    //         0,
-    //         0,
-    //         100,
-    //         200,
-    //         gl::RGBA,
-    //         gl::UNSIGNED_BYTE,
-    //         &pixels as *const u8 as *mut std::ffi::c_void,
-    //     );
-    //     for p in pixels.iter().enumerate() {
-    //         if p.0 > 10_000 {
-    //             break;
-    //         }
-    //         // println!("data {}: {}", p.0, p.1);
-    //     }
-    // }
+    let chunks = ui::layout(terminal.size()?.into());
+    let win_size = ui::get_terminal_in_cells()?;
+    let mut vp_px = ui::region_in_px(&win_size, chunks[1]);
+    resize_fbo_texture(tex, vp_px);
+
     loop {
-        terminal.draw(|f| ui::ui(f, app, fbo, tex))?;
+        // size flows down from the terminal: window -> layout -> viewport px -> texture
+        let chunks = ui::layout(terminal.size()?.into());
+        let win_size = ui::get_terminal_in_cells()?;
+        let new_vp_px = ui::region_in_px(&win_size, chunks[1]);
+        if new_vp_px != vp_px {
+            vp_px = new_vp_px;
+            resize_fbo_texture(tex, vp_px);
+        }
+        let offset_x = ui::calc_offset_x(&win_size, chunks[0]);
+
+        terminal.draw(|f| ui::ui(f, app, fbo, tex, vp_px, offset_x))?;
         handle_event(app).map_err(|err| io::Error::other(err.to_string()))?;
         if !app.run {
             return Ok(true);
         }
+    }
+}
+
+// (re)allocates the texture backing the fbo, call on viewport resize
+fn resize_fbo_texture(tex: GLuint, (width, height): (u32, u32)) {
+    unsafe {
+        gl::BindTexture(gl::TEXTURE_2D, tex);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as i32,
+            width as GLint,
+            height as GLint,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            null(),
+        );
+        gl::Viewport(0, 0, width as GLint, height as GLint);
     }
 }
 
