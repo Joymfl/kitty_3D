@@ -1,24 +1,18 @@
 use std::{
-    borrow::Cow,
-    cell,
-    io::{self, stdout},
+    io::{self},
     num::NonZero,
     path::Path,
     rc::Rc,
 };
 
-use crossterm::{
-    cursor::MoveTo,
-    execute,
-    terminal::{WindowSize, size},
-};
-use gl::types::{GLint, GLuint};
+use crossterm::{cursor::MoveTo, execute, terminal::WindowSize};
+use gl::types::GLuint;
 use kittage::{
     ImageDimensions, InputReader,
     action::Action,
     display::{DisplayConfig, DisplayLocation},
     image::Image,
-    medium::{ChunkSize, SharedMemObject},
+    medium::SharedMemObject,
     tmux::TmuxWriter,
 };
 use ratatui::{
@@ -30,7 +24,7 @@ use ratatui::{
 };
 use russimp_ng::{
     RussimpError,
-    mesh::Mesh,
+    mesh::Mesh as AssimpMesh,
     scene::{PostProcess, Scene},
 };
 
@@ -102,7 +96,7 @@ impl DrawContext {
 
 // NOTE: should always be the last call in the overall render loop
 // width, height = in px, must match the fbo texture allocation
-fn gl_draw_loop(draw_context: &DrawContext, mesh: Mesh) {
+fn gl_draw_loop(draw_context: &DrawContext, mesh: AssimpMesh) {
     execute!(io::stdout(), MoveTo(draw_context.offset_x, 0)).unwrap();
 
     // width * height * bytes required for color format
@@ -162,14 +156,19 @@ fn gl_draw_loop(draw_context: &DrawContext, mesh: Mesh) {
         config: display_config,
         placement_id: None,
     };
+    //TODO: does this actually work if the backend is not tmux? Check
     let out = TmuxWriter::new(io::stdout());
     let _ = action.write_transmit_to(out, kittage::Verbosity::ErrorsOnly);
+    //NOTE:  race condition here. If you don't forget action, shm gets dropped before the tty can actually
+    // read it. Another way to solve this would be to use `action.execute()` but, that blocks until
+    // tty sends a response. A tradeoff with `mem::forget` is that we have no idea currently with
+    // what the tty responds with, so errors go unhandled
     std::mem::forget(action)
     // action.execute(out, KpErr("".to_string()));
 }
 
 //TODO: make async, this is blocking the render
-fn load_model_info(file_path: Option<&Path>) -> Result<Vec<Mesh>, RussimpError> {
+fn load_model_info(file_path: Option<&Path>) -> Result<Vec<AssimpMesh>, RussimpError> {
     let post_process_flags = vec![
         PostProcess::CalculateTangentSpace,
         PostProcess::Triangulate,
