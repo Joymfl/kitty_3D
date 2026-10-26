@@ -17,6 +17,7 @@ khronos-egl = { version = "6.0.0", features = ["dynamic"] }
 wayland-client = "0.31.15"
 gl = "0.14.0"
 libloading = "0.8.0"
+nalgebra-glm = "0.21.0"
 
 
 # Read the optimization guideline for more details: https://ratatui.rs/recipes/apps/release-your-app/#optimizations
